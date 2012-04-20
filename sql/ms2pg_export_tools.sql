@@ -24,7 +24,7 @@ database, you can use this in one of two ways:
      Returns DDL statements to create all foreign keys in the specified 
      SQL Server catalog.
 
-   In addition, the following two stored procedures are available:
+   In addition, the following stored procedures are available:
 
    * exec pg_drop_tables <catalog>
      Returns DDL statements to drop all tables in the specified SQL Server 
@@ -35,13 +35,19 @@ database, you can use this in one of two ways:
      tables in the specified SQL Server catalog. These commands must be 
      run from a batch file.
 
+   * exec pg_get_copy_commands <catalog> 
+     Returns a set of COPY commands to import data from text files into 
+	 Postgres tables.
+
 2. When using SQL Server Management Studio, you can dump DDL statements 
-   and export  commands directly to the output window with the following 
+   and export commands directly to the output window with the following 
    commands:
 
    * exec dbo.pg_print_all_ddl <catalog>
 
    * exec dbo.pg_print_export_commands <catalog> <user> <password> <server>
+
+   * exec dbo.pg_print_copy_commands <catalog>
 
 Each of the stored procedures below is documented, in case you need help 
 understanding the parameters and output.
@@ -1025,5 +1031,77 @@ begin
 
 	close statement_cursor
 	deallocate statement_cursor
+end
+go
+
+
+------------------------------------------------------------------------------
+-- 
+-- pg_get_copy_commands
+--
+-- Returns a set of Postgres commands to import tab-delimited files
+-- into tables. You need to connect as user postgres to run the 
+-- COPY commands, but you can run \COPY as any user.
+--
+-- You will need to prepend the full path to your files in each of
+-- the copy commands.
+--
+
+if exists (select * from sys.objects where object_id = object_id('[dbo].[pg_get_copy_commands]') and type in ('p', 'pc'))
+begin
+	drop procedure [dbo].[pg_get_copy_commands]
+end
+go
+
+create procedure [dbo].[pg_get_copy_commands] (@catalog varchar(200))
+as
+begin
+	select 'copy "' + table_name + '" from ''' + 
+			table_name + '.txt'' null ''NULL'';' as 'command'
+	FROM information_schema.tables 
+	where table_catalog = @catalog and table_type = 'base table'
+	order by table_name
+end 
+go
+
+
+------------------------------------------------------------------------------
+--
+-- pg_print_copy_commands
+--
+-- Prints a Postgres COPY command for each table in the specified catalog.
+-- Output goes to the SQL Server Management Studio messages window.
+--
+if exists (select * from sys.objects where object_id = object_id('[dbo].[pg_print_copy_commands]') and type in ('p', 'pc'))
+begin
+	drop procedure [dbo].[pg_print_copy_commands]
+end
+go
+
+create procedure [dbo].[pg_print_copy_commands](@catalog varchar(200))
+as
+begin
+
+	declare @statement varchar(8000)
+	declare @table table (command varchar(8000))
+
+	set nocount on
+	insert @table exec dbo.pg_get_copy_commands @catalog 
+
+	declare statement_cursor cursor for 
+	select command from @table
+
+	open statement_cursor
+	fetch next from statement_cursor into @statement
+
+	while @@fetch_status = 0   
+	begin
+		print @statement
+		fetch next from statement_cursor into @statement
+	end
+
+	close statement_cursor
+	deallocate statement_cursor
+
 end
 go
