@@ -51,10 +51,10 @@ pg_print_export_commands, you should be aware of the following issues:
    text fields will be truncated.
 3. This has not been tested with binary data.
 4. When importing to Postgres, you may occasionally see messages about an
-   integer field or a UUID being improperly formatted. This usually happens
-   when the first piece of data in the file is an integer or UUID. If you 
-   simply open the file in a text editor and re-save it, the error goes away.
-   I have no idea why this is.
+   integer field or a UUID being improperly formatted. This is due to Windows 
+   adding a byte order marker (BOM) to the beginning of the UTF-8 file. Here
+   are some ways to remove the BOM: 
+   http://www.linuxask.com/questions/how-to-remove-bom-from-utf-8
 5. If any column of exported data ends with a backslash, Postgres will complain
    that a record is missing a column. You have to manually delete any
    trailing backslashes.
