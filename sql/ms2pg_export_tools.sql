@@ -455,6 +455,32 @@ go
 -------------------------------------------------------------------------------
 
 --
+-- pg_get_views
+--
+-- This procedure returns on CREATE TABLE statement for each table
+-- in the specified SQL Server catalog. Param prefix should be something
+-- like 'my_view%'
+-- 
+if exists (select * from sys.objects where object_id = object_id('[dbo].[pg_get_views]') and type in ('p', 'pc'))
+begin
+	drop procedure [dbo].[pg_get_views]
+end
+go 
+
+create procedure [dbo].[pg_get_views] ( @catalog varchar(100), @prefix varchar(50) )
+as
+begin
+	select table_name, dbo.pg_table_def(table_name) as 'sql_statement'
+	from information_schema.tables
+	where table_catalog = @catalog and table_type = 'VIEW' 
+	and (@prefix is null or table_name like @prefix)
+	order by table_name
+end
+go
+
+-------------------------------------------------------------------------------
+
+--
 -- pg_drop_tables
 -- 
 -- This procedure generates a DROP TABLE statement for each
